@@ -4,9 +4,9 @@ var url = require('url')
 
 module.exports = function(options) {
   var collectionName, destination, limit
-  
+
   options = options || {}
-  
+
   limit = options.limit || 20
   destination = options.destination || 'rss.xml'
   collectionName = options.collection
@@ -56,8 +56,30 @@ module.exports = function(options) {
 
     for (_i = 0, _len = collection.length; _i < _len; _i++) {
       file = collection[_i]
+
+      // Note, this seemed the best way to grab the actual body since
+      // metalsmith doesn't have this mechanism for some ungoldy reason
+      // Code is a little meh, but it gets the job done
+
+      // Grab the page
+      var trill = new Buffer(file.contents, 'utf-8').toString();
+      // Only get stuff between the <main> tags
+      var pattern = /<main[^>]*>((.|[\n\r])*)<\/main>/im;
+      var body = trill.match(pattern);
+      // Remove the header / nav bar.
+      pattern = /<header\s*[^\>]*\>[\s\S]*?<\/header>/i;
+      body = body[0].replace(pattern, '');
+      // Remove the page title.
+      pattern = /<h1>[\s\S]*?<\/h1>/i;
+      body = body.replace(pattern, '');
+      pattern = /<small>[\s\S]*?<\/small>/i;
+      body = body.replace(pattern, '');
+      //Remove the remaining tags and just have shorter descriptions.
+      body = body.replace(/<[^>]+>/ig, '').substring(0, 750);
+      body = body + '...';
+
       itemData = extend({}, file, {
-        description: file.less || file.excerpt || file.contents
+        description: body
       })
       if (!itemData.url && itemData.path) {
         itemData.url = url.resolve(siteUrl, file.path)
